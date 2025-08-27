@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/qgisbox_toolbar_locator" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
