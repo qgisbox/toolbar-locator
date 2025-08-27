@@ -3,7 +3,12 @@ REM Get the directory where this batch script is located
 set "SCRIPT_DIR=%~dp0"
 
 REM Define the path to OSGeo4W and related tools
-set OSGeo4W_PATH=D:/OSGeo4W
+call find_osgeo4w.bat
+if not defined OSGeo4W_PATH (
+    echo OSGeo4W directory not found
+    exit /b 1
+)
+
 set LRELEASE_PATH=%OSGeo4W_PATH%/apps/Qt5/bin/lrelease.exe
 set PYTHONHOME=%OSGeo4W_PATH%/apps/Python312
 set PATH=%PATH%;%OSGeo4W_PATH%/bin;%OSGeo4W_PATH%/apps/Qt5/bin

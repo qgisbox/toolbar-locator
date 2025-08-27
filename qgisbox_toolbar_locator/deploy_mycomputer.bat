@@ -3,7 +3,12 @@ REM Get the directory where this batch script is located
 set "SCRIPT_DIR=%~dp0"
 
 REM Define paths and plugin name
-set "OSGeo4W_PATH=D:/OSGeo4W"
+call find_osgeo4w.bat
+if not defined OSGeo4W_PATH (
+    echo OSGeo4W directory not found
+    exit /b 1
+)
+
 set "PYTHONHOME=%OSGeo4W_PATH%/apps/Python312"
 set "PATH=%PATH%;%OSGeo4W_PATH%/bin;%OSGeo4W_PATH%/apps/Qt5/bin"
 
