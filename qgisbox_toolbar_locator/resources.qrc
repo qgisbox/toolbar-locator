@@ -1,5 +1,14 @@
 <RCC>
     <qresource prefix="/plugins/qgisbox_toolbar_locator" >
         <file>icon.png</file>
+        <file>resx/egis/CesiumTerrainBuilder.png</file>
+        <file>resx/egis/栅格切片工具.png</file>
+        <file>resx/egis/矢量切片工具.png</file>        
+        <file>resx/egis/栅格切片服务发布.png</file>
+        <file>resx/egis/矢量切片服务发布.png</file>
+        <file>resx/egis/3DTiles服务发布.png</file>
+        <file>resx/egis/GeoServer服务发布.png</file>
+        <file>resx/egis/MapGIS转SHP.png</file>
+        <file>resx/egis/网络地图下载工具.png</file>
     </qresource>
 </RCC>

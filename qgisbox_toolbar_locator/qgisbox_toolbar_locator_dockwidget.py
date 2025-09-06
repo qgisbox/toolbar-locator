@@ -23,9 +23,14 @@
 """
 
 import os
+import subprocess
 
-from qgis.PyQt import QtGui, QtWidgets, uic
-from qgis.PyQt.QtCore import pyqtSignal
+from qgis.core import *
+
+from qgis.PyQt import QtCore, QtGui, QtWidgets, uic
+from qgis.PyQt.QtCore import pyqtSignal, QCoreApplication, QSettings, Qt
+from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
+from qgis.PyQt.QtWidgets import QListView, QMessageBox
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'qgisbox_toolbar_locator_dockwidget_base.ui'))
@@ -44,7 +49,154 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # http://doc.qt.io/qt-5/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        self.processes = []
+
+        # 初始化列表视图模型
+        self.init_list_view()
+
+    def init_list_view(self):
+        """初始化listView及其数据模型"""
+        # 创建标准项模型
+        self.model = QStandardItemModel(0, 1, self)  # 0行1列
+        self.model.setHeaderData(0, QtCore.Qt.Horizontal, "工具栏按钮")  # 设置列标题
+
+        # 可以在这里添加初始数据
+        # 示例：添加几个工具栏按钮名称
+        tool_buttons = [
+            {"name": "栅格切片工具", "code": "RasterTileTool", "icon": "栅格切片工具.png"},
+            {"name": "矢量切片工具", "code": "VectorTileTool", "icon": "矢量切片工具.png"},
+            {"name": "MapGIS数据转换", "code": "MapGIS2SHP", "icon": "MapGIS转SHP.png"},
+            {"name": "影像地图下载工具", "code": "WebMapDownloader", "icon": "网络地图下载工具.png"},
+            {"name": "Cesium三维地形切片", "code": "CesiumTerrainBuilder", "icon": "CesiumTerrainBuilder.png"},
+            {"name": "栅格切片服务发布", "code": "RasterTileService", "icon": "栅格切片服务发布.png"},
+            {"name": "矢量切片服务发布", "code": "VectorTileService", "icon": "矢量切片服务发布.png"},
+            {"name": "3DTiles服务发布", "code": "3DTilesService",
+                "icon": "3DTiles服务发布.png"},
+            {"name": "GeoServer服务发布", "code": "GeoServerPublisher",
+                "icon": "GeoServer服务发布.png"}
+        ]
+
+        icon_prefix = ":/plugins/qgisbox_toolbar_locator/resx/egis/"
+
+        for button in tool_buttons:
+            # 创建列表项，显示中文名称
+            item = QStandardItem(button["name"])
+
+            icon_path = icon_prefix + button["icon"]
+            item.setIcon(QtGui.QIcon(icon_path))
+
+            # 设置文本对齐方式（图标在左，文本在右）
+            item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            # 存储英文代码作为用户数据
+            item.setData(button["code"], QtCore.Qt.UserRole)
+            self.model.appendRow(item)
+
+        # 将模型关联到listView
+        self.listView.setModel(self.model)
+        # 关键设置：启用自动换行
+        self.listView.setTextElideMode(Qt.TextElideMode.ElideNone)  # 不截断文本
+        self.listView.setWordWrap(True)  # 启用自动换行
+        self.listView.setUniformItemSizes(True)
+        self.listView.setFlow(QListView.LeftToRight)
+        self.listView.setResizeMode(QListView.Adjust)
+
+        # 可选：设置列表视图属性
+        self.listView.setEditTriggers(
+            QtWidgets.QAbstractItemView.NoEditTriggers)  # 禁止编辑
+        self.listView.setSelectionMode(
+            QtWidgets.QAbstractItemView.SingleSelection)  # 单选模式
+        # 连接点击事件
+        self.listView.clicked.connect(self.launch_exe)
+
+    def show_button_code(self, index):
+        """显示选中项的英文代码"""
+        # 获取存储的英文代码
+        code = self.model.data(index, QtCore.Qt.UserRole)
+        # 获取按钮名称
+        name = self.model.data(index, QtCore.Qt.DisplayRole)
+
+        # 获取当前脚本所在目录
+        # __file__ 表示当前脚本的路径
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 拼接路径：脚本目录 + /apps/ + 英文代码
+        target_path = os.path.join(script_dir, "apps", code)
+
+        # 创建并显示对话框
+        msg_box = QtWidgets.QMessageBox(self)
+        msg_box.setWindowTitle("工具路径信息")
+        msg_box.setText(f"工具名称: {name}\n英文代码: {code}\n路径: {target_path}")
+        msg_box.setIcon(QtWidgets.QMessageBox.Information)
+        msg_box.exec_()
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
         event.accept()
+
+    def launch_exe(self, index):
+        """查找并启动对应目录下的exe文件"""
+        # 获取存储的英文代码
+        code = self.model.data(index, QtCore.Qt.UserRole)
+        # 获取按钮名称
+        name = self.model.data(index, QtCore.Qt.DisplayRole)
+
+        # settings = QSettings()
+        # settings.setValue( "UI/Customization/enabled", "true" )
+        # p_enabled = settings.value( "UI/Customization/enabled", "false" )
+
+        # customization = QgsApplication.pkgDataPath() + "/resources/customization.ini"
+        # QMessageBox.information(self, "customization", p_enabled)
+
+        try:
+            # 获取当前脚本所在目录
+            # script_dir = os.path.dirname(os.path.abspath(__file__))
+
+            # 拼接目标路径：脚本目录 + /apps/ + 英文代码
+            # target_dir = os.path.join(script_dir, "apps", code)
+
+            bin_dir_os = QCoreApplication.applicationDirPath()
+            # 向上导航到上级目录
+            parent_dir = os.path.dirname(bin_dir_os)
+            # 拼接share目录
+            apps_dir_os = os.path.join(parent_dir, "apps")
+            # 转换为绝对路径
+            apps_dir_os_abs = os.path.abspath(apps_dir_os)
+            target_dir = os.path.join(apps_dir_os_abs, code)
+
+            # 检查目录是否存在
+            if not os.path.exists(target_dir):
+                # 尝试创建目录（包括所有父目录）
+                os.makedirs(target_dir, exist_ok=True)
+                QMessageBox.warning(self, "目录不存在", f"未找到目录：{target_dir}")
+                return
+
+            # 查找目录下的exe文件
+            exe_files = [f for f in os.listdir(
+                target_dir) if f.endswith('.exe')]
+
+            if not exe_files:
+                QMessageBox.warning(
+                    self, "未找到exe文件", f"在 {target_dir} 中未找到任何exe文件")
+                return
+
+            # 如果有多个exe，取第一个
+            exe_path = os.path.join(target_dir, exe_files[0])
+
+            # 显示信息并启动exe
+            # msg = f"工具名称: {name}\n英文代码: {code}\n路径: {target_dir}\n将启动: {exe_files[0]}"
+            # QMessageBox.information(self, "启动程序", msg)
+
+            # 启动exe文件
+            # 在Windows上可以使用detach让进程完全独立运行
+            if os.name == 'nt':
+                # Windows系统
+                proc = subprocess.Popen(exe_path, cwd=target_dir, shell=False)
+                self.processes.append(proc)
+            else:
+                # Linux/macOS系统
+                proc = subprocess.Popen(exe_path, cwd=target_dir,
+                                 start_new_session=True)
+                self.processes.append(proc)
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"启动程序时发生错误：{str(e)}")

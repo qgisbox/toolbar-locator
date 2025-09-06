@@ -21,9 +21,19 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+import sys
+import os
+
+# 将插件内的 libs 目录添加到 Python 路径
+plugin_dir = os.path.dirname(__file__)
+libs_dir = os.path.join(plugin_dir, "libs")
+sys.path.insert(0, libs_dir)
+
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QObject, QEvent, QLibraryInfo, QTranslator
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QStyleFactory, QApplication
+from qgis.core import QgsMessageLog, Qgis
+
 # Initialize Qt resources from file resources.py
 from .resources import *
 
@@ -31,6 +41,23 @@ from .resources import *
 from .qgisbox_toolbar_locator_dockwidget import QgsBoxToolbarLocatorDockWidget
 import os.path
 
+class TitleModifier(QObject):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.is_updating = False  # 防止递归循环
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.WindowTitleChange:
+            if not self.is_updating:  # 避免自身修改触发的事件
+                self.is_updating = True
+                try:
+                    original_title = obj.windowTitle()
+                    # 替换标题末尾的 " - QGIS"
+                    new_title = original_title.replace("QGIS", "E-GIS")
+                    obj.setWindowTitle(new_title)
+                finally:
+                    self.is_updating = False
+        return super().eventFilter(obj, event)
 
 class QgsBoxToolbarLocator:
     """QGIS Plugin Implementation."""
@@ -46,11 +73,41 @@ class QgsBoxToolbarLocator:
         # Save reference to the QGIS interface
         self.iface = iface
 
+        bin_dir_os = QCoreApplication.applicationDirPath()
+        # 向上导航到上级目录
+        parent_dir = os.path.dirname(bin_dir_os)
+        # 拼接share目录
+        share_dir_os = os.path.join(parent_dir, "share")
+        # 转换为绝对路径
+        share_dir_os_abs = os.path.abspath(share_dir_os)
+        
+        trans_path = os.path.join(share_dir_os_abs, "qt5", "translations")
+
+        # 创建翻译器对象
+        self.qt_translator = QTranslator()
+
+        # 加载中文翻译文件
+        if self.qt_translator.load("qt_zh_CN.qm", trans_path):
+            QCoreApplication.installTranslator(self.qt_translator)
+        else:
+            QgsMessageLog.logMessage(
+                "无法加载翻译文件: qt_zh_CN.qm",  # 日志内容
+                "E-GIS",         # 日志标签（在消息日志面板中分组显示）
+                Qgis.Info           # 日志级别
+            )
+
         # initialize plugin directory
         self.plugin_dir = os.path.dirname(__file__)
 
         # initialize locale
         locale = QSettings().value('locale/userLocale')[0:2]
+        
+        QgsMessageLog.logMessage(
+            "locale: {}".format(locale),  # 日志内容
+            "E-GIS",         # 日志标签（在消息日志面板中分组显示）
+            Qgis.Info           # 日志级别
+        )
+        
         locale_path = os.path.join(
             self.plugin_dir,
             'i18n',
@@ -67,6 +124,17 @@ class QgsBoxToolbarLocator:
         # TODO: We are going to let the user set this up in a future iteration
         self.toolbar = self.iface.addToolBar(u'QgsBoxToolbarLocator')
         self.toolbar.setObjectName(u'QgsBoxToolbarLocator')
+
+        mainWindow = iface.mainWindow()
+        self.title_modifier = TitleModifier(mainWindow)
+        mainWindow.installEventFilter(self.title_modifier)
+        mainWindow.setWindowTitle("我的地图文档 - E-GIS")
+        
+        # 加载样式表        
+        modern_style_qss = os.path.join(libs_dir, "modern_style.qss")
+        with open(modern_style_qss, "r") as f:
+            QApplication.instance().setStyleSheet(f.read())
+        QApplication.instance().setStyle(QStyleFactory.create("Fusion"))
 
         #print "** INITIALIZING QgsBoxToolbarLocator"
 
@@ -174,6 +242,13 @@ class QgsBoxToolbarLocator:
             callback=self.run,
             parent=self.iface.mainWindow())
 
+        self.run()
+
+        settings = QSettings()
+        state = settings.value("QGIS_BOX_DOCK_LOCATIONS")
+        if state:
+            self.restoreState(state)
+
     #--------------------------------------------------------------------------
 
     def onClosePlugin(self):
@@ -205,6 +280,9 @@ class QgsBoxToolbarLocator:
             self.iface.removeToolBarIcon(action)
         # remove the toolbar
         del self.toolbar
+
+        settings = QSettings()
+        settings.setValue("QGIS_BOX_DOCK_LOCATIONS", self.saveState())
 
     #--------------------------------------------------------------------------
 

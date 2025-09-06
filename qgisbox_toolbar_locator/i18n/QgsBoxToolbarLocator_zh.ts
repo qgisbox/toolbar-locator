@@ -14,14 +14,14 @@
     <message>
         <location filename="../qgisbox_toolbar_locator.py" line="202"/>
         <source>&amp;QGIS Toolbar Locator</source>
-        <translatorcomment>&amp;QGIS工具栏定位器</translatorcomment>
-        <translation>&amp;QGIS工具栏定位器</translation>
+        <translatorcomment>&amp;E-GIS工具箱</translatorcomment>
+        <translation>&amp;E-GIS工具箱</translation>
     </message>
     <message>
         <location filename="../qgisbox_toolbar_locator.py" line="171"/>
         <source>Locate the toolbar buttons</source>
-        <translatorcomment>定位工具栏按钮</translatorcomment>
-        <translation>定位工具栏按钮</translation>
+        <translatorcomment>E-GIS工具箱</translatorcomment>
+        <translation>E-GIS工具箱</translation>
     </message>
 </context>
 <context>
@@ -29,8 +29,8 @@
     <message>
         <location filename="../qgisbox_toolbar_locator_dockwidget_base.ui" line="14"/>
         <source>QGIS Toolbar Locator</source>
-        <translatorcomment>QGIS工具栏定位器</translatorcomment>
-        <translation>QGIS工具栏定位器</translation>
+        <translatorcomment>E-GIS工具箱</translatorcomment>
+        <translation>E-GIS工具箱</translation>
     </message>
     <message>
         <location filename="../qgisbox_toolbar_locator_dockwidget_base.ui" line="21"/>
