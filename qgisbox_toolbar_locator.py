@@ -221,10 +221,15 @@ class QgsBoxToolbarLocator:
             #    removed on close (see self.onClosePlugin method)
             if self.dockwidget == None:
                 # Create the dockwidget (after translation) and keep reference
-                self.dockwidget = QgsBoxToolbarLocatorDockWidget()
+                # 传入iface参数，以便dockwidget能够访问QGIS接口
+                self.dockwidget = QgsBoxToolbarLocatorDockWidget(iface=self.iface)
 
             # connect to provide cleanup on closing of dockwidget
             self.dockwidget.closingPlugin.connect(self.onClosePlugin)
+            
+            # 初始化时获取并显示菜单和工具栏
+            if self.iface:
+                self.dockwidget.populateMenuAndToolbarData()
 
             # show the dockwidget
             # TODO: fix to allow choice of dock location
