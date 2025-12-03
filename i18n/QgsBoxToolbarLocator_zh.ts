@@ -12,16 +12,24 @@
 <context>
     <name>QgsBoxToolbarLocator</name>
     <message>
-        <location filename="../qgisbox_toolbar_locator.py" line="202"/>
+        <location filename="../qgisbox_toolbar_locator.py" line="207"/>
         <source>&amp;QGIS Toolbar Locator</source>
-        <translatorcomment>&amp;QGIS工具栏定位器</translatorcomment>
         <translation>&amp;QGIS工具栏定位器</translation>
     </message>
     <message>
+        <location filename="../qgisbox_toolbar_locator.py" line="68"/>
+        <source>QgsBoxToolbarLocator</source>
+        <translation>工具栏定位器</translation>
+    </message>
+    <message>
         <location filename="../qgisbox_toolbar_locator.py" line="171"/>
-        <source>Locate the toolbar buttons</source>
-        <translatorcomment>定位工具栏按钮</translatorcomment>
-        <translation>定位工具栏按钮</translation>
+        <source>Show the toolbar Locator</source>
+        <translation>显示工具栏定位器面板</translation>
+    </message>
+    <message>
+        <location filename="../qgisbox_toolbar_locator.py" line="176"/>
+        <source>Switch the toolbar style</source>
+        <translation>切换图标文字显示模式</translation>
     </message>
 </context>
 <context>
@@ -29,15 +37,7 @@
     <message>
         <location filename="../qgisbox_toolbar_locator_dockwidget_base.ui" line="14"/>
         <source>QGIS Toolbar Locator</source>
-        <translatorcomment>QGIS工具栏定位器</translatorcomment>
         <translation>QGIS工具栏定位器</translation>
-    </message>
-    <message>
-        <location filename="../qgisbox_toolbar_locator_dockwidget_base.ui" line="21"/>
-        <source>Replace this QLabel
-with the desired
-plugin content.</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 </TS>

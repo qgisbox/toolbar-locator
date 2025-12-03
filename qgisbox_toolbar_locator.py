@@ -21,6 +21,8 @@
  *                                                                         *
  ***************************************************************************/
 """
+
+from qgis.PyQt import QtGui, QtWidgets, uic
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
@@ -65,7 +67,7 @@ class QgsBoxToolbarLocator:
         self.actions = []
         self.menu = self.tr(u'&QGIS Toolbar Locator')
         # TODO: We are going to let the user set this up in a future iteration
-        self.toolbar = self.iface.addToolBar(u'QgsBoxToolbarLocator')
+        self.toolbar = self.iface.addToolBar(self.tr(u'QgsBoxToolbarLocator'))
         self.toolbar.setObjectName(u'QgsBoxToolbarLocator')
 
         #print "** INITIALIZING QgsBoxToolbarLocator"
@@ -170,8 +172,13 @@ class QgsBoxToolbarLocator:
         icon_path = ':/plugins/qgisbox_toolbar_locator/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Locate the toolbar buttons'),
+            text=self.tr(u'Show the toolbar Locator'),
             callback=self.run,
+            parent=self.iface.mainWindow())
+        self.add_action(
+            icon_path,
+            text=self.tr(u'Switch the toolbar style'),
+            callback=self.runSwitch,
             parent=self.iface.mainWindow())
 
     #--------------------------------------------------------------------------
@@ -207,6 +214,21 @@ class QgsBoxToolbarLocator:
         del self.toolbar
 
     #--------------------------------------------------------------------------
+    def runSwitch(self):
+        """Switch the toolbar buttons"""
+        try:
+            if self.iface:
+                main_window = self.iface.mainWindow()
+                if main_window:
+                    # 切换工具栏按钮                    
+                    toolbars = main_window.findChildren(QtWidgets.QToolBar)
+                    for toolbar in toolbars:
+                        if toolbar.toolButtonStyle() == Qt.ToolButtonTextBesideIcon:
+                            toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
+                        elif toolbar.toolButtonStyle() == Qt.ToolButtonIconOnly:
+                            toolbar.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        except Exception as e:
+            print(f"切换工具栏按钮时出错: {str(e)}")
 
     def run(self):
         """Run method that loads and starts the plugin"""
