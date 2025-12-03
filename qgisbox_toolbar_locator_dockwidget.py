@@ -45,6 +45,8 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
         self.iface = iface        
+        # 连接TreeView的doubleClicked信号到闪烁功能
+        self.treeView.doubleClicked.connect(self._onItemDoubleClicked)
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -105,6 +107,74 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.model.setHorizontalHeaderLabels(['错误信息'])
         self.model.appendRow(error_item)
         self.treeView.setModel(self.model)
+    
+    def _onItemDoubleClicked(self, index):
+        """处理TreeView中项目的双击事件，触发对应的action闪烁"""
+        try:
+            # 获取双击的item
+            item = self.model.itemFromIndex(index)
+            if not item:
+                return
+                
+            # 从item的data中获取action对象
+            action = item.data()
+            if not action:
+                return
+                
+            # 调用闪烁功能
+            self._flashAction(action)
+        except Exception as e:
+            # 如果出错，不影响其他功能
+            print(f"双击处理出错: {str(e)}")
+    
+    def _flashAction(self, action):
+        """使与action关联的所有widgets（按钮、菜单项等）闪烁"""
+        try:
+            from qgis.PyQt.QtCore import QTimer, QTime
+            
+            # 获取与action关联的所有widgets
+            widgets = action.associatedWidgets()
+            if not widgets:
+                return
+                
+            # 保存原始样式表
+            original_styles = []
+            for widget in widgets:
+                original_styles.append((widget, widget.styleSheet()))
+            
+            # 闪烁次数和间隔
+            flash_count = 0
+            max_flashes = 3  # 闪烁3次
+            flash_interval = 200  # 200毫秒间隔
+            
+            # 创建定时器
+            timer = QTimer()
+            timer.setSingleShot(False)
+            
+            def flash():
+                nonlocal flash_count
+                flash_count += 1
+                
+                for widget, original_style in original_styles:
+                    if flash_count % 2 == 1:
+                        # 奇数闪烁 - 高亮显示
+                        widget.setStyleSheet("background-color: yellow; color: black;")
+                    else:
+                        # 偶数闪烁 - 恢复原始样式
+                        widget.setStyleSheet(original_style)
+                
+                if flash_count >= max_flashes * 2:
+                    # 闪烁完成，恢复所有样式并停止定时器
+                    for widget, original_style in original_styles:
+                        widget.setStyleSheet(original_style)
+                    timer.stop()
+            
+            # 连接定时器信号并启动
+            timer.timeout.connect(flash)
+            timer.start(flash_interval)
+            
+        except Exception as e:
+            print(f"闪烁action时出错: {str(e)}")
     
     def _collectMenus(self, main_window, parent_item):
         """使用menuBar()方法直接获取主菜单栏"""
@@ -174,7 +244,7 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                         if action.objectName():
                             text = f"({action.objectName()})"
                         else:
-                            text = "无标题菜单项"
+                            text = "<无标题菜单项>"
                     
                     # 移除快捷键标记和加速器符号
                     if '\t' in text:
@@ -184,20 +254,14 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                     # 创建菜单项
                     item = QtGui.QStandardItem(text)
                     
+                    # 存储action对象到item的data中，用于双击操作
+                    item.setData(action)
+                    item.setToolTip(action.toolTip())
+                    
                     # 设置菜单项属性
                     if not action.isEnabled():
                         # 禁用的菜单项设置为灰色
                         item.setForeground(QtGui.QColor(160, 160, 160))
-                    
-                    # 检查是否有快捷键
-                    shortcut = action.shortcut().toString()
-                    if shortcut:
-                        item.setToolTip(f"快捷键: {shortcut}")
-                    
-                    # 检查动作类型并设置状态信息
-                    if action.isCheckable():
-                        check_state = "已勾选" if action.isChecked() else "未勾选"
-                        item.setToolTip(f"{item.toolTip()}\n状态: {check_state}" if item.toolTip() else f"状态: {check_state}")
                     
                     # 检查是否是子菜单
                     submenu = action.menu()
@@ -214,7 +278,7 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                         parent_item.appendRow(item)
             else:
                 # 如果菜单为空，添加提示
-                empty_item = QtGui.QStandardItem("此菜单为空")
+                empty_item = QtGui.QStandardItem("<此菜单为空>")
                 empty_item.setForeground(QtGui.QColor(160, 160, 160))  # 设置为灰色
                 parent_item.appendRow(empty_item)
         except Exception as e:
@@ -260,100 +324,44 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
                         parent_item.appendRow(toolbar_item)
                         
                         try:
-                            actions = toolbar.actions()
+                            toolbar_widgets = toolbar.findChildren(QtWidgets.QToolButton)
                             action_count = 0
-                            
-                            for action in actions:
-                                if action.isSeparator():
-                                    continue
-                                
+
+                            for idx, widget in enumerate(toolbar_widgets):  # 添加索引，便于定位出错控件
                                 try:
-                                    action_text = ""
-                                    # 1. 优先获取原始text（去重&符号）
-                                    try:
-                                        raw_text = action.text()
-                                        if raw_text:
-                                            action_text = raw_text
-                                    except Exception:
-                                        pass
-                                    
-                                    # 2. text为空时，尝试获取iconText（图标下方的短文本）
-                                    if not action_text:
-                                        try:
-                                            icon_text = action.iconText()
-                                            if icon_text:
-                                                action_text = f"[图标文本] {icon_text}"
-                                        except Exception:
-                                            pass
-                                    
-                                    # 3. 仍为空，尝试tooltip（截取前50字符）
-                                    if not action_text:
-                                        try:
-                                            tooltip = action.toolTip()
-                                            if tooltip:
-                                                action_text = f"[提示] {tooltip}"
-                                        except Exception:
-                                            pass
-                                    
-                                    # 4. 仍为空，尝试statusTip（状态栏提示）
-                                    if not action_text:
-                                        try:
-                                            status_tip = action.statusTip()
-                                            if status_tip:
-                                                action_text = f"[状态提示] {status_tip}"
-                                        except Exception:
-                                            pass
-                                    
-                                    # 5. 仍为空，尝试whatsThis（详细说明）
-                                    if not action_text:
-                                        try:
-                                            whats_this = action.whatsThis()
-                                            if whats_this:
-                                                action_text = f"[详细说明] {whats_this}"
-                                        except Exception:
-                                            pass
-                                    
-                                    # 6. 所有文本都为空，显示兜底信息（明确原因）
-                                    if not action_text:
-                                        if action.objectName():
-                                            # 无图标但有对象名
-                                            action_text = f"({action.objectName()}) 无文本/提示"
-                                        elif action.icon():
-                                            # 有图标但无任何文本
-                                            action_text = "[纯图标按钮] 无文本/提示"
-                                        else:
-                                            # 完全无信息
-                                            action_text = "无标题/无图标/无提示"
-                                    
-                                    # 创建item并设置样式（不变）
-                                    item = QtGui.QStandardItem(action_text)
-                                    
-                                    # 检查是否禁用（不变）
-                                    try:
-                                        if not action.isEnabled():
-                                            item.setForeground(QtGui.QColor(160, 160, 160))
-                                    except Exception:
-                                        pass
-                                    
-                                    # 检查快捷键（不变）
-                                    try:
-                                        shortcut = action.shortcut().toString()
-                                        if shortcut:
-                                            item.setToolTip(f"快捷键: {shortcut}")
-                                    except Exception:
-                                        pass
-                                    
-                                    toolbar_item.appendRow(item)
-                                    action_count += 1
-                                except Exception as text_error:
-                                    item = QtGui.QStandardItem(f"(按钮处理出错: {str(text_error)})")
-                                    item.setForeground(QtGui.QColor(255, 165, 0))
-                                    toolbar_item.appendRow(item)
-                            
+                                    # 处理场景1：QToolButton的默认Action（直接关联或自动生成）
+                                    action = widget.defaultAction()
+                                    if action:
+                                        # 跳过分隔符和空文本Action
+                                        if not action.isSeparator() and action.text().strip():
+                                            item = QtGui.QStandardItem(f"{action.text()}")
+                                            item.setData(action)
+                                            item.setToolTip(action.toolTip())
+                                            toolbar_item.appendRow(item)
+                                            action_count += 1
+                                        
+                                            # 关键修复：检查Action是否绑定了菜单（自动生成按钮的场景）
+                                            action_menu = action.menu()
+                                            if action_menu and len(action_menu.actions()) > 0:
+                                                self._collectMenuItems(action_menu, item)
+                                            else:
+                                                # 处理场景2：QToolButton直接绑定的菜单（手动添加的QToolButton）
+                                                tb_menu = widget.menu()
+                                                if tb_menu and not action_menu and len(tb_menu.actions()) > 0:  # 避免与Action的菜单重复处理
+                                                    self._collectMenuItems(tb_menu, item)
+
+                                
+                                except Exception as widget_error:
+                                    # 增强错误信息：包含控件索引、对象名，便于调试
+                                    error_msg = f"处理工具栏按钮（索引{idx}，对象名：{widget.objectName() or '无'}）时出错: {str(widget_error)}"
+                                    error_item = QtGui.QStandardItem(error_msg)
+                                    error_item.setForeground(QtGui.QColor(255, 165, 0))
+                                    toolbar_item.appendRow(error_item)
                             if action_count == 0:
-                                empty_item = QtGui.QStandardItem("(空工具栏)")
-                                empty_item.setForeground(QtGui.QColor(128, 128, 128))
-                                toolbar_item.appendRow(empty_item)
+                                no_action_item = QtGui.QStandardItem("此工具栏为空")
+                                no_action_item.setForeground(QtGui.QColor(160, 160, 160))
+                                toolbar_item.appendRow(no_action_item)
+
                         except Exception as actions_error:
                             error_item = QtGui.QStandardItem(f"获取工具栏动作时出错: {str(actions_error)}")
                             error_item.setForeground(QtGui.QColor(255, 165, 0))
