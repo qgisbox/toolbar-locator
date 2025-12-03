@@ -25,7 +25,7 @@
 import os
 
 from qgis.PyQt import QtGui, QtWidgets, uic
-from qgis.PyQt.QtCore import pyqtSignal, Qt, QAbstractItemModel, QModelIndex
+from qgis.PyQt.QtCore import pyqtSignal, Qt, QAbstractItemModel, QModelIndex, QSortFilterProxyModel
 
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'qgisbox_toolbar_locator_dockwidget_base.ui'))
@@ -47,6 +47,9 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.iface = iface        
         # 连接TreeView的doubleClicked信号到闪烁功能
         self.treeView.doubleClicked.connect(self._onItemDoubleClicked)
+        
+        # 初始化搜索功能
+        self._initSearch()
 
     def closeEvent(self, event):
         self.closingPlugin.emit()
@@ -80,8 +83,9 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
             self.model.appendRow(toolbars_root)
             self._collectToolbars(main_window, toolbars_root)
             
-            # 设置模型到treeView
-            self.treeView.setModel(self.model)
+            # 设置代理模型
+            self.proxy_model.setSourceModel(self.model)
+            self.treeView.setModel(self.proxy_model)
             
             # 设置TreeView属性以提高用户体验
             self.treeView.setAlternatingRowColors(True)
@@ -106,11 +110,19 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         self.model = QtGui.QStandardItemModel()
         self.model.setHorizontalHeaderLabels(['错误信息'])
         self.model.appendRow(error_item)
-        self.treeView.setModel(self.model)
+        if hasattr(self, 'proxy_model'):
+            self.proxy_model.setSourceModel(self.model)
+            self.treeView.setModel(self.proxy_model)
+        else:
+            self.treeView.setModel(self.model)
     
     def _onItemDoubleClicked(self, index):
         """处理TreeView中项目的双击事件，触发对应的action闪烁"""
         try:
+            # 如果使用了代理模型，需要转换索引
+            if hasattr(self, 'proxy_model'):
+                index = self.proxy_model.mapToSource(index)
+                
             # 获取双击的item
             item = self.model.itemFromIndex(index)
             if not item:
@@ -126,6 +138,24 @@ class QgsBoxToolbarLocatorDockWidget(QtWidgets.QDockWidget, FORM_CLASS):
         except Exception as e:
             # 如果出错，不影响其他功能
             print(f"双击处理出错: {str(e)}")
+    
+    def _initSearch(self):
+        """初始化搜索功能"""
+        # 创建并设置搜索代理模型
+        self.proxy_model = QSortFilterProxyModel()
+        self.proxy_model.setFilterCaseSensitivity(Qt.CaseInsensitive)  # 不区分大小写
+        self.proxy_model.setRecursiveFilteringEnabled(True)  # 递归过滤子项
+        self.proxy_model.setFilterKeyColumn(0)  # 只过滤第一列
+        
+        # 连接lineEdit的textChanged信号到搜索功能
+        self.lineEdit.textChanged.connect(self._onSearchTextChanged)
+    
+    def _onSearchTextChanged(self, text):
+        """处理搜索文本变化事件，过滤treeView内容"""
+        try:
+            self.proxy_model.setFilterFixedString(text)
+        except Exception as e:
+            print(f"搜索时出错: {str(e)}")
     
     def _flashAction(self, action):
         """使与action关联的所有widgets（按钮、菜单项等）闪烁"""

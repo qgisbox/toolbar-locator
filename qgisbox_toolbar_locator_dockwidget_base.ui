@@ -15,8 +15,11 @@
   </property>
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
+    <item row="1" column="0">
      <widget class="QTreeView" name="treeView"/>
+    </item>
+    <item row="0" column="0">
+     <widget class="QLineEdit" name="lineEdit"/>
     </item>
    </layout>
   </widget>
